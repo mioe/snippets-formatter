@@ -55,7 +55,9 @@ const main = async () => {
 }
 
 (async () => {
-  const result = await main()
+  const data = await main()
+  let result = {}
+  data.forEach(el => { result = {...result, ...el} })
   await writeFile(result)
   console.log('END')
 })()
