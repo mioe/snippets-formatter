@@ -44,7 +44,7 @@ const main = async () => {
     const promise = snippets.map(async (snippet) => await readFileAsync(`${IMPORT_FOLDER}/${snippet}`, { encoding: 'utf-8' }))
     const data = await Promise.all(promise)
     return data.map((snippet, index) => {
-      const name = snippets[index]
+      const name = snippets[index].replace(FORMAT, '')
       const tag = cutString(snippet, '<tabTrigger>', '</tabTrigger>')
       const body = cutString(snippet, '<content><![CDATA[', ']]></content>')
       return templateVscodeSnippet(name, tag, body)
