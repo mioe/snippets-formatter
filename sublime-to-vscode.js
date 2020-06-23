@@ -1,21 +1,24 @@
 const fs = require('fs')
+const { promisify } = require('util')
+
+const readdirAsync = promisify(fs.readdir)
+const readFileAsync = promisify(fs.readFile)
+const writeFileAsync = promisify(fs.writeFile)
 
 const IMPORT_FOLDER = './snippets/'
 const FORMAT = new RegExp('\\.sublime-snippet', 'i')
-let result = {}
 
-function cutString(str, start, end) {
+const cutString = (str, start, end) => {
   const indexA = str.indexOf(start) + start.length
   const indexB = str.indexOf(end)
   return str.substring(indexA, indexB)
 }
 
-function strToArray(str) {
+const strToArray = str => {
   const arr = str.split('\n')
   return arr.filter(line => line.length > 0)
 }
-
-function templateVscodeSnippet(name, prefix, body) {
+const templateVscodeSnippet = (name, prefix, body) => {
   let tmp = {}
   tmp[name] = {
     prefix: prefix,
@@ -25,35 +28,34 @@ function templateVscodeSnippet(name, prefix, body) {
   return tmp
 }
 
-function writeFile(data) {
-  fs.writeFile('snippets.json', JSON.stringify(data, null, '\t'), 'utf8', (err) => {
-    if (err) throw err
-    console.log('The file has been saved!')
-  })
+const writeFile = async (data) => {
+  try {
+    await writeFileAsync('snippets.json', JSON.stringify(data, null, '\t'), 'utf8')
+  } catch (err) {
+    console.log(err)
+  }
 }
 
 
-fs.readdir(IMPORT_FOLDER, (err, files) => {
-  if (err != null) return console.error('ERROR:', err)
-
-  const snippets = files.filter(file => file.match(FORMAT))
-  snippets.forEach(snippet => {
-    fs.readFile(`${IMPORT_FOLDER}/${snippet}`, { encoding: 'utf-8' }, function (err, data) {
-      if (err) {
-        if (err.code == 'ENOENT') console.error(err.message)
-        else console.error(err)
-      } else {
-        const name = snippet.replace(FORMAT, '')
-        const tag = cutString(data, '<tabTrigger>', '</tabTrigger>')
-        const body = cutString(data, '<content><![CDATA[', ']]></content>')
-        const snippet_result = templateVscodeSnippet(name, tag, body)
-        result = {...result, ...snippet_result}
-      }
+const main = async () => {
+  try {
+    const files = await readdirAsync(IMPORT_FOLDER)
+    const snippets = files.filter(file => file.match(FORMAT))
+    const promise = snippets.map(async (snippet) => await readFileAsync(`${IMPORT_FOLDER}/${snippet}`, { encoding: 'utf-8' }))
+    const data = await Promise.all(promise)
+    return data.map((snippet, index) => {
+      const name = snippets[index]
+      const tag = cutString(snippet, '<tabTrigger>', '</tabTrigger>')
+      const body = cutString(snippet, '<content><![CDATA[', ']]></content>')
+      return templateVscodeSnippet(name, tag, body)
     })
-  })
-})
+  } catch (err) {
+    console.log(err)
+  }
+}
 
-setTimeout(() => {
-  writeFile(result)
-}, 1000);
-
+(async () => {
+  const result = await main()
+  await writeFile(result)
+  console.log('END')
+})()
